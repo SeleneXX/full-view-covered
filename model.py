@@ -1,11 +1,23 @@
-import random, math, collections
-full_view_angle = 1/3*math.pi       #设置全景角度为60°
+import random, math, collections, copy
+full_view_angle = 1/3*math.pi
+
+def get_angle(v1):
+    dx1 = v1[2] - v1[0]
+    dy1 = v1[3] - v1[1]
+    dx2 = 1
+    dy2 = 0
+    angle1 = math.atan2(dy1, dx1)
+    # print(angle1)
+    angle2 = math.atan2(dy2, dx2)
+    # print(angle2)
+    included_angle = angle1-angle2
+    return included_angle
 
 class point():      #待检测点类
     def __init__(self, posx, posy):
         self.posx = posx
         self.posy = posy
-        self.cover = 0        #被摄像头覆盖的数目
+        self.cover = []
         self.coverrate = 0      #全景覆盖率
 
 class sensor():
@@ -45,7 +57,7 @@ class area():
 
     def random_point(self, points_nums):
          while len(self.points) < points_nums:
-            new_point = point(random.random(self.minlenth, self.maxlenth), random.random(self.minheight, self.maxheight))
+            new_point = point(round(random.uniform(1, self.maxlenth - 1), 2), round(random.uniform(1, self.maxheight - 1), 2))
             self.points.append(new_point)
 
 
@@ -55,9 +67,9 @@ class area():
 
 
 class vsensor():        #虚拟摄像头类，也就是圆形覆盖模型
-    def __init__(self, sensor, area):
-        self.angle = sensor.angle
-        self.radius = sensor.radius
+    def __init__(self, angle, radius, area):
+        self.angle = angle
+        self.radius = radius
         self.width = area.maxlenth
         self.height = area.maxheight
         self.points = area.points
@@ -66,24 +78,21 @@ class vsensor():        #虚拟摄像头类，也就是圆形覆盖模型
 
 
     def get_sensor(self):       #初始化得到能覆盖到点的所有摄像头，位置为均匀分布
-        for i in range(self.width + 1):
-            for j in range(self.height + 1):
+        for i in range((self.width + 1)*3):
+            for j in range((self.height + 1)*3):
                 for point in self.points:
-                    if (i - point.posx)**2 + (j - point.posy)**2 <= self.radius**2:
-                        self.sensor_pos[(i, j)].append(point)
+                    if (i/3 - point.posx)**2 + (j/3 - point.posy)**2 <= self.radius**2:
+                        self.sensor_pos[(i/3, j/3)].append(point)
 
 
     def select_sensor(self):         #使用贪心法，每一次循环计算出当前摄像头集合中，对全景覆盖率贡献最大的摄像头，直到覆盖率满
         def merge(intervals):           #区间合并函数，用于计算待检测点在加入一个新的摄像头后的覆盖区间，方便计算覆盖率
             if len(intervals) == 0:
                 return []
-
             res = []
             intervals = list(sorted(intervals))
-
             low = intervals[0][0]
             high = intervals[0][1]
-
             for i in range(1, len(intervals)):
                 # 若当前区间和目前保存区间有交集，则进行判断后修改相应的区间参数；若当前区间和目前保存区间没有交集，则将目前保存区间放入到结果集合中，并将当前区间记录成目前保存区间
                 if high >= intervals[i][0]:
@@ -93,18 +102,24 @@ class vsensor():        #虚拟摄像头类，也就是圆形覆盖模型
                     res.append([low, high])
                     low = intervals[i][0]
                     high = intervals[i][1]
-
             res.append([low, high])
             return res
 
         sensor_selected = {}        #贪心法选择的摄像头，key值为摄像头坐标，value值为覆盖的结点
-        while self.all_contri < len(self.points):           #循环直到覆盖率满
+
+        while len(self.points) - self.all_contri > 0.00001:           #循环直到覆盖率满
             contri_dict = collections.defaultdict(float)        #记录每一次循环摄像头集合中的每一个摄像头的覆盖率
             for key, values in self.sensor_pos.items():     #第二层循环，计算加入当前摄像头对每个待检测点覆盖率产生的影响
+                if key in sensor_selected.keys():
+                    continue
                 whole_diff = 0      #当前摄像头所创造的覆盖率增加
+                pointcover = []
                 for point in values:        #第三层循环，对于当前摄像头覆盖的每一个点，计算其新增的覆盖区间，计算增加的覆盖率
-                    k = (point.posy - key[1]) / (point.posx - key[0])              #计算新增的覆盖区加
-                    ANG = math.atan(k)
+                    origin_cover = copy.deepcopy(point.cover)
+                    k = [key[0], key[1], point.posx, point.posy]              #计算新增的覆盖区加
+                    ANG = get_angle(k)
+                    if ANG < 0:
+                        ANG += 2 * math.pi
                     lowbound = ANG - 0.5*full_view_angle
                     upbound = ANG + 0.5*full_view_angle
                     if lowbound < 0:
@@ -119,15 +134,20 @@ class vsensor():        #虚拟摄像头类，也就是圆形覆盖模型
                     percent = 0
                     for interval in point.cover:            #计算覆盖率
                         interv = interval[1] - interval[0]
-                        percent += interv / math.pi*2
+                        twopi = math.pi*2
+                        percent += interv / twopi
                     diff = percent - point.coverrate            #获得当前待检测点所产生的覆盖率差距
-                    point.coverrate = percent
-                    whole_diff += diff              #累加
-                contri_dict[key] = whole_diff       #记录当前结点产生的覆盖率差距
-            a = sorted(contri_dict.items(), key=lambda x:x[1], reverse=True)         #排序，按照覆盖率差距降序
-            sensor_selected[a[0]] = self.sensor_pos[a[0]]       #贪心选择覆盖率差距最大的摄像头，加入选择集合，同时记录其覆盖的待检测点
-            self.all_contri += a[1]             #增加覆盖率差距
-            del contri_dict[a[0]]               #删除该摄像头，避免重复运算
+                    whole_diff += diff              #
+                    cover_interval = copy.deepcopy(point.cover)
+                    pointcover.append([point, percent, cover_interval])
+                    point.cover = origin_cover
+                contri_dict[key] = (whole_diff, pointcover)     #记录当前结点产生的覆盖率差距
+            a = sorted(contri_dict.items(), key=lambda x:(-x[1][0], x[0]))     #排序，按照覆盖率差距降序
+            sensor_selected[a[0][0]] = self.sensor_pos[a[0][0]]       #贪心选择覆盖率差距最大的摄像头，加入选择集合，同时记录其覆盖的待检测点
+            self.all_contri += a[0][1][0]             #增加覆盖率差距
+            for point in a[0][1][1]:
+                point[0].coverrate = point[1]
+                point[0].cover = point[2]
         return sensor_selected
 
 
@@ -137,8 +157,10 @@ class vsensor():        #虚拟摄像头类，也就是圆形覆盖模型
             pre_covered = []
             point_ANG = []
             for point in covered_points:
-                k = (point.posy - sensor[1]) / (point.posx - sensor[0])
-                ANG_begin = math.atan(k)
+                k = [sensor[0], sensor[1], point.posx, point.posy]
+                ANG_begin = get_angle(k)
+                if ANG_begin < 0:
+                    ANG_begin += 2 * math.pi
                 point_ANG.append([point, ANG_begin])
                 ANG_end = ANG_begin + self.angle
                 if ANG_end > 2 * math.pi:
