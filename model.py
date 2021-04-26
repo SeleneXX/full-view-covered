@@ -1,4 +1,5 @@
 import random, math, collections, copy
+
 full_view_angle = 1/3*math.pi
 
 def get_angle(v1):
@@ -107,7 +108,7 @@ class vsensor():        #虚拟摄像头类，也就是圆形覆盖模型
 
         sensor_selected = {}        #贪心法选择的摄像头，key值为摄像头坐标，value值为覆盖的结点
 
-        while len(self.points) - self.all_contri > 0.00001:           #循环直到覆盖率满
+        while len(self.points) - self.all_contri > 0.05*len(self.points):           #循环直到覆盖率满
             contri_dict = collections.defaultdict(float)        #记录每一次循环摄像头集合中的每一个摄像头的覆盖率
             for key, values in self.sensor_pos.items():     #第二层循环，计算加入当前摄像头对每个待检测点覆盖率产生的影响
                 if key in sensor_selected.keys():
@@ -142,7 +143,11 @@ class vsensor():        #虚拟摄像头类，也就是圆形覆盖模型
                     pointcover.append([point, percent, cover_interval])
                     point.cover = origin_cover
                 contri_dict[key] = (whole_diff, pointcover)     #记录当前结点产生的覆盖率差距
-            a = sorted(contri_dict.items(), key=lambda x:(-x[1][0], x[0]))     #排序，按照覆盖率差距降序
+            new = list(contri_dict.items())
+            for i in range(len(new)):
+                new[i] = list(new[i])
+                new[i].append(new[i][0][0]**2+new[i][0][1]**2)
+            a = sorted(new, key=lambda x:(-x[1][0], x[2]))     #排序，按照覆盖率差距降序
             sensor_selected[a[0][0]] = self.sensor_pos[a[0][0]]       #贪心选择覆盖率差距最大的摄像头，加入选择集合，同时记录其覆盖的待检测点
             self.all_contri += a[0][1][0]             #增加覆盖率差距
             for point in a[0][1][1]:
@@ -201,5 +206,6 @@ class vsensor():        #虚拟摄像头类，也就是圆形覆盖模型
                 angles.append(angle)
             real_sensor[sensor] = angles
         return real_sensor
+
 
 
