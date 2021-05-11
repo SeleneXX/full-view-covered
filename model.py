@@ -86,6 +86,11 @@ class Vsensor:  # 虚拟摄像头类，也就是圆形覆盖模型
                     if (i / 3 - point.posx) ** 2 + (j / 3 - point.posy) ** 2 <= self.radius ** 2:
                         self.sensor_pos[(i / 3, j / 3)].append(point)
 
+    def clear_sensor(self):
+        self.sensor_pos = collections.defaultdict(list)
+        self.all_contri = 0
+
+
     def select_sensor(self):  # 使用贪心法，每一次循环计算出当前摄像头集合中，对全景覆盖率贡献最大的摄像头，直到覆盖率满
         def merge(intervals):  # 区间合并函数，用于计算待检测点在加入一个新的摄像头后的覆盖区间，方便计算覆盖率
             if len(intervals) == 0:
@@ -205,3 +210,16 @@ class Vsensor:  # 虚拟摄像头类，也就是圆形覆盖模型
                 angles.append(angle)
             real_sensor[sensor] = angles
         return real_sensor
+
+class Area_seperate:
+    def __init__(self, lenth, height, sensor):
+        self.lenth = lenth
+        self.height = height
+        self.radius = sensor.radius
+
+
+    def seperate(self):
+        self.lenth = 1
+
+
+

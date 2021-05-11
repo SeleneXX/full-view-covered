@@ -5,7 +5,7 @@ from PIL import Image
 from PIL import ImageDraw
 
 new_area = Area(5, 5)
-new_area.random_point(15)
+new_area.random_point(10)
 print("create area suceesful, the points are in these position:")
 for point in new_area.points:
     print("({}, {})".format(point.posx, point.posy), end=" |||| ")
