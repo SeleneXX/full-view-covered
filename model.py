@@ -79,6 +79,7 @@ class Vsensor:  # 虚拟摄像头类，也就是圆形覆盖模型
         self.all_contri = 0
         self.sensor_pos = collections.defaultdict(list)
 
+
     def get_sensor(self):  # 初始化得到能覆盖到点的所有摄像头，位置为均匀分布
         for i in range((self.width + 1) * 3):
             for j in range((self.height + 1) * 3):
