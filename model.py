@@ -212,6 +212,118 @@ class Vsensor:  # 虚拟摄像头类，也就是圆形覆盖模型
             real_sensor[sensor] = angles
         return real_sensor
 
+    def random_throwin(self):
+        #首先初始化该区域
+        for point in self.points:
+            point.cover = []
+            point.coverrate = 0
+        self.all_contri = 0
+        def merge(intervals):  # 区间合并函数，用于计算待检测点在加入一个新的摄像头后的覆盖区间，方便计算覆盖率
+            if len(intervals) == 0:
+                return []
+            res = []
+            intervals = list(sorted(intervals))
+            low = intervals[0][0]
+            high = intervals[0][1]
+            for innterval in range(1, len(intervals)):
+                # 若当前区间和目前保存区间有交集，则进行判断后修改相应的区间参数；若当前区间和目前保存区间没有交集，则将目前保存区间放入到结果集合中，并将当前区间记录成目前保存区间
+                if high >= intervals[innterval][0]:
+                    if high < intervals[innterval][1]:
+                        high = intervals[innterval][1]
+                else:
+                    res.append([low, high])
+                    low = intervals[innterval][0]
+                    high = intervals[innterval][1]
+            res.append([low, high])
+            return res
+
+        sensor_selected = {}  # 贪心法选择的摄像头，key值为摄像头坐标，value值为覆盖的结点
+
+        while len(self.points) - self.all_contri > 0.05 * len(self.points):  # 循环直到覆盖率满
+            key = random.choice(list(self.sensor_pos.keys()))
+            values = self.sensor_pos[key]
+            if key in sensor_selected.keys():
+                continue
+            whole_diff = 0  # 当前摄像头所创造的覆盖率增加
+            for point in values:  # 第三层循环，对于当前摄像头覆盖的每一个点，计算其新增的覆盖区间，计算增加的覆盖率
+                k = [key[0], key[1], point.posx, point.posy]  # 计算新增的覆盖区加
+                ang = get_angle(k)
+                if ang < 0:
+                    ang += 2 * math.pi
+                lowbound = ang - 0.5 * full_view_angle
+                upbound = ang + 0.5 * full_view_angle
+                if lowbound < 0:
+                    point.cover.append([lowbound + 2 * math.pi, 2 * math.pi])
+                    point.cover.append([0, upbound])
+                elif upbound > 2 * math.pi:
+                    point.cover.append([lowbound, 2 * math.pi])
+                    point.cover.append([0, upbound - 2 * math.pi])
+                else:
+                    point.cover.append([lowbound, upbound])
+                point.cover = merge(point.cover)  # 合并新增的区间和旧的区间
+                percent = 0
+                for interval in point.cover:  # 计算覆盖率
+                    interv = interval[1] - interval[0]
+                    twopi = math.pi * 2
+                    percent += interv / twopi
+                diff = percent - point.coverrate  # 获得当前待检测点所产生的覆盖率差距
+                point.coverrate = percent
+                whole_diff += diff  #
+            self.all_contri += whole_diff
+            sensor_selected[key] = values
+        return sensor_selected
+
+    def random_select_orientation(self, virtuesensors):
+        real_sensor = {}
+        for sensor, covered_points in virtuesensors.items():
+            pre_covered = []
+            point_ang = []
+            for point in covered_points:
+                k = [sensor[0], sensor[1], point.posx, point.posy]
+                ang_begin = get_angle(k)
+                if ang_begin < 0:
+                    ang_begin += 2 * math.pi
+                point_ang.append([point, ang_begin])
+                ang_end = ang_begin + self.angle
+                if ang_end > 2 * math.pi:
+                    pre_covered.append([ang_begin, 2 * math.pi])
+                    pre_covered.append([0, ang_end - 2 * math.pi])
+                else:
+                    pre_covered.append([ang_begin, ang_end])
+
+            point_ang = sorted(point_ang, key=lambda x: x[1])
+            cover_list = []
+            for ANGLE in point_ang:
+                cover_num = 0
+                for interval in pre_covered:
+                    if interval[0] <= ANGLE[1] <= interval[1]:
+                        cover_num += 1
+                cover_list.append(cover_num)
+            mini = 100
+            mini_index = 0
+            for i in range(len(cover_list)):
+                if mini > cover_list[i]:
+                    mini = cover_list[i]
+                    mini_index = i
+            cover_interval = [[point_ang[mini_index][1], point_ang[mini_index][1] + self.angle]]
+            now_index = mini_index
+            while True:
+                now_index += 1
+                if now_index == len(point_ang):
+                    now_index -= len(point_ang)
+                if now_index == mini_index:
+                    break
+                if point_ang[now_index][1] >= cover_interval[-1][1]:
+                    cover_interval.append([point_ang[now_index][1], point_ang[now_index][1] + self.angle])
+            angles = []
+            for interval in cover_interval:
+                angle = interval[0] + 0.5 * self.angle
+                if angle > 2 * math.pi:
+                    angle -= 2 * math.pi
+                angles.append(angle)
+            real_sensor[sensor] = angles
+        return real_sensor
+
 class Area_seperate:
     def __init__(self, lenth, height, sensor):
         self.lenth = lenth
