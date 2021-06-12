@@ -65,6 +65,13 @@ class Area:
                               round(random.uniform(1, self.maxheight - 1), 2))
             self.points.append(new_point)
 
+    def init_point(self, center_x, center_y, radius):
+        for a in range(0, self.maxlenth*3):
+            for b in range(0, self.maxheight*3):
+                if abs(center_y - b/3) <= radius and abs(center_x - a/3) <= radius:
+                    new_point = Point(a/3, b/3)
+                    self.points.append(new_point)
+
     def clear_area(self):
         self.points = []
 

@@ -100,8 +100,10 @@ def test_random():
         y_t.append(value[1])
 
     x = range(len(x1))
+    y_v = [33, 87, 165, 220, 258, 310]
 
     plt.plot(x, y_r, marker='o', mec='r', mfc='w', label=u'随机投放所需的传感器数量')
+    plt.plot(x, y_v, marker='+', mec='g', mfc='w', label=u'顺序投放所需的传感器数量')
     plt.plot(x, y_t, marker='*', ms=10, label=u'ISDA算法所需的传感器数量')
     plt.legend()  # 让图例生效
     plt.xticks(x, x1, rotation=45)
@@ -161,7 +163,7 @@ def test_normal():
     plt.show()
 
 
-test_normal()
+test_random()
 
 
 
